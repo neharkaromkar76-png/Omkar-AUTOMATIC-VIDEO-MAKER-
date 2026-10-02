@@ -1,0 +1,6 @@
+{
+  "name": "OMKAR AUTOMATIC VIDEO MAKER",
+  "description": "AI-powered automatic video editor that detects speech and utterance boundaries, splits videos at natural pauses, and applies smooth keyframe animations to every clip.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
