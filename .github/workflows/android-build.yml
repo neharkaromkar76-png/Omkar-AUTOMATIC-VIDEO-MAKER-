@@ -39,7 +39,7 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Setup environment and keystore
+      - name: Setup environment
         shell: bash
         run: |
           # Ensure .env exists for Secrets Gradle Plugin
@@ -47,22 +47,6 @@ jobs:
             cp .env.example .env
           else
             touch .env
-          fi
-
-          # Ensure debug.keystore exists for signing debug build
-          if [ -f debug.keystore.base64 ]; then
-            base64 -d debug.keystore.base64 > debug.keystore
-          fi
-          if [ ! -f debug.keystore ]; then
-            keytool -genkeypair -v \
-              -keystore debug.keystore \
-              -alias androiddebugkey \
-              -keyalg RSA \
-              -keysize 2048 \
-              -validity 10000 \
-              -storepass android \
-              -keypass android \
-              -dname "CN=Android Debug,O=Android,C=US"
           fi
 
       - name: Verify Gradle wrapper
