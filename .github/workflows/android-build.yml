@@ -1,37 +1,46 @@
-name: Build Android APK
+name: Build OMKAR AUTOMATIC VIDEO MAKER APK
 
 on:
   push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
+    branches:
+      - main
+      - master
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
+
   build:
-    name: Build & Package APK
+    name: Build Android APK
     runs-on: ubuntu-latest
 
     steps:
-      - name: 1. Checkout repository
+
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: 2. Setup JDK 17
+      - name: Show project structure
+        shell: bash
+        run: |
+          echo "======================================"
+          echo "PROJECT STRUCTURE"
+          echo "======================================"
+          find . -maxdepth 4 -type f | sort | head -500
+
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
+          distribution: temurin
           java-version: '17'
+          cache: gradle
 
-      - name: 3. Setup Android SDK
+      - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Setup Gradle Build & Dependency Caching
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          cache-read-only: false
-          generate-job-summary: true
-
-      - name: Prepare build environment & keystore
+      - name: Setup environment and keystore
+        shell: bash
         run: |
           # Ensure .env exists for Secrets Gradle Plugin
           if [ -f .env.example ]; then
@@ -56,33 +65,87 @@ jobs:
               -dname "CN=Android Debug,O=Android,C=US"
           fi
 
-      - name: 4. Make gradlew executable
-        run: chmod +x gradlew
-
-      - name: 5. Build Debug APK
-        run: ./gradlew assembleDebug --stacktrace --no-daemon
-
-      - name: 6. Find and verify generated APK
-        id: find_apk
+      - name: Verify Gradle wrapper
+        shell: bash
         run: |
-          APK_FILE=$(find app/build/outputs/apk/debug -name "*.apk" -type f | head -n 1)
-          if [ -z "$APK_FILE" ] || [ ! -f "$APK_FILE" ]; then
-            echo "::error::No APK file generated! Build failed."
+          if [ ! -f "./gradlew" ]; then
+            echo "ERROR: gradlew is missing."
+            echo "The Android project must contain a Gradle wrapper."
             exit 1
           fi
-          echo "Found APK at: $APK_FILE"
-          FILE_SIZE=$(stat -c%s "$APK_FILE")
-          if [ "$FILE_SIZE" -le 1000 ]; then
-            echo "::error::Generated APK is empty or invalid (size: $FILE_SIZE bytes)."
-            exit 1
-          fi
-          echo "APK size: $FILE_SIZE bytes"
-          echo "apk_path=$APK_FILE" >> $GITHUB_OUTPUT
 
-      - name: 7. Upload APK Artifact
+          if [ ! -f "./gradle/wrapper/gradle-wrapper.properties" ]; then
+            echo "ERROR: gradle-wrapper.properties is missing."
+            exit 1
+          fi
+
+          chmod +x ./gradlew
+
+          ./gradlew --version
+
+      - name: Show Gradle tasks
+        shell: bash
+        run: |
+          ./gradlew tasks --all --no-daemon --console=plain
+
+      - name: Build Debug APK
+        shell: bash
+        run: |
+          ./gradlew assembleDebug \
+            --stacktrace \
+            --no-daemon \
+            --console=plain
+
+      - name: Verify APK
+        shell: bash
+        run: |
+          echo "======================================"
+          echo "SEARCHING FOR APK"
+          echo "======================================"
+
+          find . -type f -name "*.apk" -print
+
+          APK_COUNT=$(find . -type f -name "*.apk" | wc -l)
+
+          echo "APK COUNT: $APK_COUNT"
+
+          if [ "$APK_COUNT" -eq 0 ]; then
+            echo ""
+            echo "ERROR: Gradle completed but NO APK was generated."
+            echo ""
+            echo "Build directories:"
+            find . -type d -name "build" -print
+            exit 1
+          fi
+
+      - name: Prepare APK
+        shell: bash
+        run: |
+          rm -rf release-apk
+          mkdir -p release-apk
+
+          APK=$(find app/build/outputs/apk/debug -type f -name "*.apk" | head -n 1)
+          if [ -z "$APK" ]; then
+            APK=$(find . -type f -name "*.apk" | head -n 1)
+          fi
+
+          echo "Selected APK:"
+          echo "$APK"
+
+          cp "$APK" "release-apk/OMKAR-AUTOMATIC-VIDEO-MAKER-debug.apk"
+
+          echo "======================================"
+          echo "FINAL APK"
+          echo "======================================"
+
+          ls -lh release-apk/
+
+          test -f "release-apk/OMKAR-AUTOMATIC-VIDEO-MAKER-debug.apk"
+
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: OMKAR-AUTOMATIC-VIDEO-MAKER-debug
-          path: ${{ steps.find_apk.outputs.apk_path }}
+          path: release-apk/OMKAR-AUTOMATIC-VIDEO-MAKER-debug.apk
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 7
